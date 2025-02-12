@@ -48,7 +48,7 @@ hot_map = True
 plot_dir = './images/feature_maps/'
 test_img_path = './data/test_set'
 model_path = './best_model/model_1/model_1.ckpt'
-os.environ["CUDA_VISIBLE_DEVICES"] = '2'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 bic_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
 origin_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
