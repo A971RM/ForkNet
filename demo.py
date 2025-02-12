@@ -28,7 +28,7 @@ import numpy as np
 import cv2
 from newton_polynomial_inteprolation import interpolate as NPI
 
-PATH = '/Users/marc/Documents/Dataset/AquisitionImagesFinal/Polarcam/image_00001.png'
+PATH = './test.bmp'
 
 if __name__ == '__main__':
     I = np.double(cv2.imread(PATH, 0))
@@ -67,18 +67,10 @@ if __name__ == '__main__':
     AOPP = bytescale(cv2.normalize(AOPP, out, 1.0, 0.0,
                                    cv2.NORM_MINMAX, dtype=cv2.CV_32F))
 
-    #SOP = np.uint8(SOP)
-    #DOLPP = np.uint8(DOLPP)
-    #AOPP = np.uint8(AOPP)
+    SOP = np.uint8(SOP)
+    DOLPP = np.uint8(DOLPP)
+    AOPP = np.uint8(AOPP)
 
-    cv2.imshow('Intensity', SOP)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    cv2.imshow('DOP', DOLPP)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    cv2.imshow('AOP', AOPP)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    cv2.imwrite('Intensity.bmp', SOP)
+    cv2.imwrite('DOP.bmp', DOLPP)
+    cv2.imwrite('AOP.bmp', AOPP)
