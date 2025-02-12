@@ -38,6 +38,7 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from skimage.measure import compare_ssim
+from newton_polynomial_inteprolation import interpolate as NPI
 
 IMG_NUM = 10
 IMG_WIDTH = 1280
@@ -51,6 +52,7 @@ model_path = './best_model/model_1/model_1.ckpt'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 bic_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
+newton_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
 origin_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
 msc_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 1], np.float32)
 bic_s0 = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
@@ -97,6 +99,9 @@ with tf.Session() as sess:
     total_DoLP_PSNR_BIC = np.zeros((IMG_NUM))
     total_AoP_PSNR = np.zeros((IMG_NUM))
     total_AoP_PSNR_BIC = np.zeros((IMG_NUM))
+    total_S0_PSNR_NEWTON = np.zeros((IMG_NUM))
+    total_DoLP_PSNR_NEWTON = np.zeros((IMG_NUM))
+    total_AoP_PSNR_NEWTON = np.zeros((IMG_NUM))
     total_time = 0
 
     for i in range(0, IMG_NUM):
@@ -108,6 +113,7 @@ with tf.Session() as sess:
             origin_img[i, :, :, j] = img
 
         bic_img[i]=pad_shift(bic_img[i])
+        newton_img[i] = NPI(msc_img[i, ..., 0])
 
         start = time.time()
         S0_hat_test, DoLP_hat_test, AoP_hat_test = sess.run([S0_hat, DoLP_hat, AoP_hat], feed_dict={Y: msc_img[i:i+1]})
@@ -141,6 +147,11 @@ with tf.Session() as sess:
         bic_dolp[i] = DoLP_BIC
         bic_aop[i] = AoP_BIC
 
+        #the dolp of newton images
+        S0_NEWTON = 1 / 2 * (newton_img[i, :, :, 0] + newton_img[i, :, :, 1] + newton_img[i, :, :, 2] + newton_img[i,:, :, 3])
+        DoLP_NEWTON = dolp(newton_img[i, :, :, 0], newton_img[i, :, :, 1], newton_img[i, :, :, 2], newton_img[i, :, :, 3])
+        AoP_NEWTON = aop(newton_img[i, :, :, 0], newton_img[i, :, :, 1], newton_img[i, :, :, 2], newton_img[i, :, :, 3]) + math.pi / 4.
+
         # Calculate the PSNR of S0, DoLP and AoP obtained through PDCNN method
         total_S0_PSNR[i]=  psnr(S0_true, S0_hat_test, 2)
         total_DoLP_PSNR[i] = psnr(DoLP_true, DoLP_hat_test, 1)
@@ -151,6 +162,16 @@ with tf.Session() as sess:
         total_DoLP_PSNR_BIC[i] = psnr(DoLP_true, DoLP_BIC, 1)
         total_AoP_PSNR_BIC[i] = psnr(AoP_true, AoP_BIC, math.pi/2.)
 
+        # Calculate the PSNR of S0, DoLP and AoP obtained through BICUBIC method
+        total_S0_PSNR_BIC[i] = psnr(S0_true, S0_BIC, 2)
+        total_DoLP_PSNR_BIC[i] = psnr(DoLP_true, DoLP_BIC, 1)
+        total_AoP_PSNR_BIC[i] = psnr(AoP_true, AoP_BIC, math.pi/2.)
+
+        # Calculate the PSNR of S0, DoLP and AoP obtained through NEWTON method
+        total_S0_PSNR_NEWTON[i] = psnr(S0_true, S0_NEWTON, 2)
+        total_DoLP_PSNR_NEWTON[i] = psnr(DoLP_true, DoLP_NEWTON, 1)
+        total_AoP_PSNR_NEWTON[i] = psnr(AoP_true, AoP_NEWTON, math.pi/2.)
+
         # show the progress bar
         view_bar(i, IMG_NUM)
 
@@ -159,6 +180,11 @@ with tf.Session() as sess:
           '\n| PSNR of S_0 using SRCNN: %.5f    |   PSNR of S_0 using BICUBIC: %.5f   |' % (np.mean(total_S0_PSNR), np.mean(total_S0_PSNR_BIC)) +
           '\n| PSNR of DoLP using PDCNN: %.5f   |   PSNR of DoLP using BICUBIC: %.5f  |' % (np.mean(total_DoLP_PSNR), np.mean(total_DoLP_PSNR_BIC)) +
           '\n| PSNR of AoP using SRCNN: %.5f    |   PSNR of AoP using BICUBIC: %.5f   |' % (np.mean(total_AoP_PSNR), np.mean(total_AoP_PSNR_BIC)) +
+          '\n ————————————————————————————————————————————————————————————————————————————————')
+
+    print('\n| PSNR of S_0 using NEWTON: %.5f   |' % (np.mean(total_S0_PSNR_NEWTON)) +
+          '\n| PSNR of DoLP using NEWTON: %.5f  |' % (np.mean(total_DoLP_PSNR_NEWTON)) +
+          '\n| PSNR of AoP using NEWTON: %.5f   |' % (np.mean(total_AoP_PSNR_NEWTON)) +
           '\n ————————————————————————————————————————————————————————————————————————————————')
 
     print('\nSRCNN time: {} sec'.format(total_time / IMG_NUM))

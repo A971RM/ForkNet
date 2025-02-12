@@ -186,4 +186,4 @@ def interpolate(I):
     I90 = R[:, :, 2]
     I135 = R[:, :, 3]
 
-    return (I0, I45, I90, I135)
+    return R#(I0, I45, I90, I135)
