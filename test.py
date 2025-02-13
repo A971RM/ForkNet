@@ -53,10 +53,7 @@ test_img_path = './data/test_set'
 model_path = './best_model/model_1/model_1.ckpt'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
-bic_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
 newton_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
-origin_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
-msc_img = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH, 1], np.float32)
 bic_s0 = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 origin_s0 = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 pred_s0 = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
@@ -68,15 +65,7 @@ origin_aop = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 pred_aop = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 
 # define the index for downsampling
-m_1 = np.arange(0, IMG_HEIGHT, 2)
-n_1 = np.arange(0, IMG_WIDTH, 2)
-m_2 = np.arange(1, IMG_HEIGHT, 2)
-n_2 = np.arange(1, IMG_WIDTH, 2)
-i_0, j_0 = np.meshgrid(m_1, n_1, indexing='ij')
-i_45, j_45 = np.meshgrid(m_1, n_2, indexing='ij')
-i_90, j_90 = np.meshgrid(m_2, n_2, indexing='ij')
-i_135, j_135 = np.meshgrid(m_2, n_1, indexing='ij')
-ds_index = [(i_0, j_0), (i_45, j_45), (i_90, j_90), (i_135, j_135)]
+mns = [(0, 0), (0, 1), (1, 1), (1, 0)]
 
 tf.reset_default_graph()
 
@@ -117,15 +106,21 @@ with tf.Session() as sess:
             print("=======================")
             print(path_origin)
             img = np.array(Image.open(path_origin).convert('L'), np.float32) / 255.
-            msc_img[i, ds_index[j][0], ds_index[j][1], 0] = img[ds_index[j]]
-            bic_img[i, :, :, j] = cv2.resize(img[ds_index[j]], (IMG_WIDTH, IMG_HEIGHT), cv2.INTER_CUBIC)
-            origin_img[i, :, :, j] = img
+            IMG_HEIGHT, IMG_WIDTH = img.shape
+            if j == 0:
+                msc_img = np.zeros([IMG_HEIGHT, IMG_WIDTH, 1], np.float32)
+                bic_img = np.zeros([IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
+                origin_img = np.zeros([IMG_HEIGHT, IMG_WIDTH, 4], np.float32)
+            downimg = img[mns[j][0]::2, mns[j][1]::2]
+            msc_img[mns[j][0]::2, mns[j][1]::2, 0] = downimg
+            bic_img[..., j] = cv2.resize(downimg, (IMG_WIDTH, IMG_HEIGHT), cv2.INTER_CUBIC)
+            origin_img[..., j] = img
 
-        bic_img[i]=pad_shift(bic_img[i])
+        bic_img=pad_shift(bic_img)
         # newton_img[i] = NPI(msc_img[i, ..., 0])
 
         start = time.time()
-        S0_hat_test, DoLP_hat_test, AoP_hat_test = sess.run([S0_hat, DoLP_hat, AoP_hat], feed_dict={Y: msc_img[i:i+1]})
+        S0_hat_test, DoLP_hat_test, AoP_hat_test = sess.run([S0_hat, DoLP_hat, AoP_hat], feed_dict={Y: msc_img[np.newaxis]})
         end = time.time()
         total_time += end - start
 
@@ -136,25 +131,16 @@ with tf.Session() as sess:
         # print(np.max(AoP_hat_test), np.min(AoP_hat_test))
         AoP_hat_test = np.clip(AoP_hat_test[0, :, :, 0], 0, math.pi/2)
         # AoP_hat_test = Normalize(AoP_hat_test[0, :, :, 0], math.pi / 2., 0)
-        pred_s0[i] = S0_hat_test
-        pred_dolp[i] = DoLP_hat_test
-        pred_aop[i] = AoP_hat_test
 
         #the s0, dolp and aop of original images
-        S0_true = 0.5 * (origin_img[i, :, :, 0] + origin_img[i, :, :, 1] + origin_img[i, :, :, 2] + origin_img[i, :, :, 3])
-        DoLP_true = dolp(origin_img[i, :, :, 0], origin_img[i, :, :, 1], origin_img[i, :, :, 2], origin_img[i, :, :, 3])
-        AoP_true = aop(origin_img[i, :, :, 0], origin_img[i, :, :, 1], origin_img[i, :, :, 2], origin_img[i, :, :, 3]) + math.pi/4.
-        origin_s0[i] = S0_true
-        origin_dolp[i] = DoLP_true
-        origin_aop[i] = AoP_true
+        S0_true = 0.5 * (origin_img[..., 0] + origin_img[..., 1] + origin_img[..., 2] + origin_img[..., 3])
+        DoLP_true = dolp(origin_img[..., 0], origin_img[..., 1], origin_img[..., 2], origin_img[..., 3])
+        AoP_true = aop(origin_img[..., 0], origin_img[..., 1], origin_img[..., 2], origin_img[..., 3]) + math.pi/4.
 
         #the dolp of bic images
-        S0_BIC = 1 / 2 * (bic_img[i, :, :, 0] + bic_img[i, :, :, 1] + bic_img[i, :, :, 2] + bic_img[i,:, :, 3])
-        DoLP_BIC = dolp(bic_img[i, :, :, 0], bic_img[i, :, :, 1], bic_img[i, :, :, 2], bic_img[i, :, :, 3])
-        AoP_BIC = aop(bic_img[i, :, :, 0], bic_img[i, :, :, 1], bic_img[i, :, :, 2], bic_img[i, :, :, 3]) + math.pi / 4.
-        bic_s0[i] = S0_BIC
-        bic_dolp[i] = DoLP_BIC
-        bic_aop[i] = AoP_BIC
+        S0_BIC = 1 / 2 * (bic_img[..., 0] + bic_img[..., 1] + bic_img[..., 2] + bic_img[..., 3])
+        DoLP_BIC = dolp(bic_img[..., 0], bic_img[..., 1], bic_img[..., 2], bic_img[..., 3])
+        AoP_BIC = aop(bic_img[..., 0], bic_img[..., 1], bic_img[..., 2], bic_img[..., 3]) + math.pi / 4.
 
         # #the dolp of newton images
         # S0_NEWTON = 1 / 2 * (newton_img[i, :, :, 0] + newton_img[i, :, :, 1] + newton_img[i, :, :, 2] + newton_img[i,:, :, 3])
