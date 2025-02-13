@@ -22,6 +22,7 @@ fully-convolutional neural network for division of focal plane sensors
 to reconstruct S0, DoLP, and AoP," Opt. Express 27, 8566-8577 (2019)
 ========================================================================
 """
+import random
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -40,14 +41,15 @@ import matplotlib.cm as cm
 from skimage.measure import compare_ssim
 from newton_polynomial_inteprolation import interpolate as NPI
 
+IMG_ALL = 231
 IMG_NUM = 10
-IMG_WIDTH = 1280
-IMG_HEIGHT = 960
+IMG_WIDTH = 2448
+IMG_HEIGHT = 2048
 output_images=[]
 vis_feature_map = False
 hot_map = True
 plot_dir = './images/feature_maps/'
-test_img_path = './data/test_set'
+test_img_path = './data/test_set2'
 model_path = './best_model/model_1/model_1.ckpt'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
@@ -66,10 +68,10 @@ origin_aop = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 pred_aop = np.zeros([IMG_NUM, IMG_HEIGHT, IMG_WIDTH], np.float32)
 
 # define the index for downsampling
-m_1 = np.arange(0, 959, 2)
-n_1 = np.arange(0, 1279, 2)
-m_2 = np.arange(1, 960, 2)
-n_2 = np.arange(1, 1280, 2)
+m_1 = np.arange(0, IMG_HEIGHT, 2)
+n_1 = np.arange(0, IMG_WIDTH, 2)
+m_2 = np.arange(1, IMG_HEIGHT, 2)
+n_2 = np.arange(1, IMG_WIDTH, 2)
 i_0, j_0 = np.meshgrid(m_1, n_1, indexing='ij')
 i_45, j_45 = np.meshgrid(m_1, n_2, indexing='ij')
 i_90, j_90 = np.meshgrid(m_2, n_2, indexing='ij')
@@ -103,11 +105,18 @@ with tf.Session() as sess:
     total_DoLP_PSNR_NEWTON = np.zeros((IMG_NUM))
     total_AoP_PSNR_NEWTON = np.zeros((IMG_NUM))
     total_time = 0
-
+    random.seed(100)
+    numbers = random.sample(range(IMG_ALL), IMG_NUM)
     for i in range(0, IMG_NUM):
+        si = numbers[i]
+        tic = time.time()
         for j in range(0, 4):
-            path_origin = test_img_path + '/image_{}_{}.bmp'.format(i + 1, j * 45)
-            img = np.array(Image.open(path_origin), np.float32) / 255.
+            path_origin = test_img_path + '/image_{}_{}.png'.format(si + 1, j * 45)
+            if not os.path.exists(path_origin):
+                path_origin = test_img_path + '/image_{}_{}.jpg'.format(si + 1, j * 45)
+            print("=======================")
+            print(path_origin)
+            img = np.array(Image.open(path_origin).convert('L'), np.float32) / 255.
             msc_img[i, ds_index[j][0], ds_index[j][1], 0] = img[ds_index[j]]
             bic_img[i, :, :, j] = cv2.resize(img[ds_index[j]], (IMG_WIDTH, IMG_HEIGHT), cv2.INTER_CUBIC)
             origin_img[i, :, :, j] = img
@@ -174,6 +183,8 @@ with tf.Session() as sess:
 
         # show the progress bar
         view_bar(i, IMG_NUM)
+        toc = time.time()
+        print("\nTIME SPEND", toc - tic)
 
     print('\n========================================Testing=======================================' +
           '\n ————————————————————————————————————————————————————————————————————————————————' +
