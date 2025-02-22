@@ -33,9 +33,9 @@ import matplotlib.pyplot as plt
 import os
 import math
 import csv
-from skimage.measure import compare_ssim
+# from skimage.measure import compare_ssim
 
-#os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 #FINE_TUNE = False
 LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY_STEPS = 600
@@ -58,6 +58,15 @@ labels_path = './data/training_set/Labels.h5'
 BIC_path = './data/training_set/BIC.h5'
 ckpt_path = './best_model/model_1/model_1.ckpt'
 csv_path = './list/psnr_record_1.csv'
+
+# import torch
+# print(torch.cuda.is_available())  # 检查是否有可用的GPU
+# print(torch.cuda.device_count())  # 查看GPU数量
+
+import tensorflow as tf
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+# assert False
+
 
 #------------------------------------------------------------------------------
 def load_data(batch_size = BATCH_SIZE, train_img_index_path = train_img_index_path,

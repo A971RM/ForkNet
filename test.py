@@ -38,10 +38,11 @@ import time
 # matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from skimage.measure import compare_ssim
+# from skimage.measure import compare_ssim
+from skimage.metrics import structural_similarity as compare_ssim
 from newton_polynomial_inteprolation import interpolate as NPI
 
-IMG_ALL = 231
+IMG_ALL = 10
 IMG_NUM = IMG_ALL
 IMG_WIDTH = 1280
 IMG_HEIGHT = 960
@@ -49,7 +50,7 @@ output_images=[]
 vis_feature_map = False
 hot_map = True
 plot_dir = './images/feature_maps/'
-test_img_path = './data/test_set2'
+test_img_path = './data/test_set'
 model_path = './best_model/model_1/model_1.ckpt'
 # os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
@@ -100,7 +101,7 @@ with tf.Session() as sess:
         si = numbers[i]
         tic = time.time()
         for j in range(0, 4):
-            path_origin = test_img_path + '/image_{}_{}.png'.format(si + 1, j * 45)
+            path_origin = test_img_path + '/image_{}_{}.bmp'.format(si + 1, j * 45)
             if not os.path.exists(path_origin):
                 path_origin = test_img_path + '/image_{}_{}.jpg'.format(si + 1, j * 45)
             print("=======================")

@@ -21,7 +21,7 @@ CLIP_STRIDES = 40
 BIC_filename = '../data/training_set/BIC.h5'
 Y_filename = '../data/training_set/Y.h5'
 labels_filename = '../data/training_set/Labels.h5'
-data_path = '/home/data_set/Polarized_Images/training_set/'
+data_path = '../data/training_set/'
 
 # the clip coordinates on x axis
 x_steps = np.arange(0, IMG_WIDTH-PATCH_SIZE, CLIP_STRIDES)
