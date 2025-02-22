@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import os
 import math
 import csv
+from tqdm import tqdm
 # from skimage.measure import compare_ssim
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
@@ -42,7 +43,7 @@ LEARNING_RATE_DECAY_STEPS = 600
 LEARNING_RATE_DECAY_RATE = 0.988
 IMG_NUM = 110
 EPOCH_NUM = 300
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 PATCH_WIDTH = 40
 PATCH_HEIGHT = 40
 GPUS = "2"
@@ -187,26 +188,22 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
             print('=======================================Epoch:{}/{}======================================='.format(epoch, epoch_num))
             # training
             total_train_loss = 0
-            for step in range(train_steps):
-                (Input_batch_train, Para_batch_train) = next(train_generator)
+            # Create a tqdm progress bar
+            with tqdm(range(train_steps), desc="Training", ncols=100) as pbar:
+                for step in pbar:
+                    (Input_batch_train, Para_batch_train) = next(train_generator)
 
-                Y_batch_train = Input_batch_train[:, :, :, :1]
-                S0_batch_train = Para_batch_train[:,:,:,:1]
-                DoLP_batch_train = Para_batch_train[:,:,:,1:2]
-                AoP_batch_train = Para_batch_train[:,:,:,2:]
+                    Y_batch_train = Input_batch_train[:, :, :, :1]
+                    S0_batch_train = Para_batch_train[:,:,:,:1]
+                    DoLP_batch_train = Para_batch_train[:,:,:,1:2]
+                    AoP_batch_train = Para_batch_train[:,:,:,2:]
 
-                sess.run(train_step, feed_dict={Y:Y_batch_train, S0:S0_batch_train, DoLP:DoLP_batch_train, AoP:AoP_batch_train})
-                train_loss = sess.run(loss, feed_dict={Y:Y_batch_train, S0:S0_batch_train, DoLP:DoLP_batch_train, AoP:AoP_batch_train})
-                total_train_loss += train_loss
+                    sess.run(train_step, feed_dict={Y:Y_batch_train, S0:S0_batch_train, DoLP:DoLP_batch_train, AoP:AoP_batch_train})
+                    train_loss = sess.run(loss, feed_dict={Y:Y_batch_train, S0:S0_batch_train, DoLP:DoLP_batch_train, AoP:AoP_batch_train})
+                    total_train_loss += train_loss
 
-                if step % dsp_itv == 0:
-                    rate = float(step + 1) / float(train_steps)
-                    rate_num = int(rate * 100)
-                    arrow = 0 if step + 1 == train_steps else 1
-                    r = '\rStep:%d/%d [%s%s%s]%d%% --- Training loss:%f' % \
-                        (step + 1, train_steps, '■' * rate_num, '▶' * arrow, '-' * (100 - rate_num - arrow), rate * 100, train_loss)
-                    print(r)
-                
+                    pbar.set_postfix(loss=train_loss)
+                    
             # validation
 
             total_val_loss = 0
