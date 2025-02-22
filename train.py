@@ -42,7 +42,7 @@ LEARNING_RATE_DECAY_STEPS = 600
 LEARNING_RATE_DECAY_RATE = 0.988
 IMG_NUM = 110
 EPOCH_NUM = 300
-BATCH_SIZE = 128
+BATCH_SIZE = 8
 PATCH_WIDTH = 40
 PATCH_HEIGHT = 40
 GPUS = "2"
@@ -292,7 +292,7 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
             writer.writerows(psnr_record)
                        
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
+    # os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
     tf.reset_default_graph()
     train()
     
