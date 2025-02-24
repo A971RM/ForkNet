@@ -65,9 +65,7 @@ csv_path = './list/psnr_record_1.csv'
 # print(torch.cuda.device_count())  # 查看GPU数量
 
 import tensorflow as tf
-print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-# assert False
-
+print("Num GPUs Available: ", tf.test.is_gpu_available())
 
 #------------------------------------------------------------------------------
 def load_data(batch_size = BATCH_SIZE, train_img_index_path = train_img_index_path,
