@@ -23,10 +23,9 @@ to reconstruct S0, DoLP, and AoP," Opt. Express 27, 8566-8577 (2019)
 ========================================================================
 """
 
-# import tensorflow as tf
 import numpy as np
 import h5py
-from model import ForkNet, MSE_LOSS, LOSS, smooth_loss
+from model import MSE_LOSS, LOSS, smooth_loss
 from utils.batch_generator import patch_batch_generator
 from utils.utils import dolp, psnr, normalize, aop, gs_rand_choice
 import matplotlib.pyplot as plt 
@@ -40,17 +39,17 @@ import torch.optim as optim
 from models import *
 # from skimage.measure import compare_ssim
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 #FINE_TUNE = False
 LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY_STEPS = 600
 LEARNING_RATE_DECAY_RATE = 0.988
-IMG_NUM = 10
+IMG_NUM = 110
 EPOCH_NUM = 300
 BATCH_SIZE = 16
 PATCH_WIDTH = 40
 PATCH_HEIGHT = 40
-GPUS = "2"
+# GPUS = "2"
 DSP_ITV = 6
 metrics = 'training loss'
 save_best = True
@@ -63,13 +62,6 @@ labels_path = './data/training_set/Labels.h5'
 BIC_path = './data/training_set/BIC.h5'
 ckpt_path = './best_model/model_1/model_1.ckpt'
 csv_path = './list/psnr_record_1.csv'
-
-# import torch
-# print(torch.cuda.is_available())  # 检查是否有可用的GPU
-# print(torch.cuda.device_count())  # 查看GPU数量
-
-# import tensorflow as tf
-# print("Num GPUs Available: ", tf.test.is_gpu_available())
 
 #------------------------------------------------------------------------------
 def load_data(batch_size = BATCH_SIZE, train_img_index_path = train_img_index_path,
@@ -140,14 +132,13 @@ def load_data(batch_size = BATCH_SIZE, train_img_index_path = train_img_index_pa
     return train_steps, train_Y, train_label, val_steps, val_Y, val_para
 
 #------------------------------------------------------------------------------
-def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EPOCH_NUM, batch_size = BATCH_SIZE,  learning_rate = LEARNING_RATE,
+def train(device, patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EPOCH_NUM, batch_size = BATCH_SIZE,  learning_rate = LEARNING_RATE,
           learning_rate_decay_steps = LEARNING_RATE_DECAY_STEPS, learning_rate_decay_rate = LEARNING_RATE_DECAY_RATE,
           dsp_itv = DSP_ITV, ckpt_path = ckpt_path, save_best = save_best, early_stop = early_stop):
     '''
     Difine the tensorflow graph, execute training and validation.
     '''
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     train_steps, train_Y, train_label, val_steps, val_Y, val_label = load_data()
     # val_s0 = val_para[:, :, :, :1]
@@ -155,7 +146,6 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
     # val_aop = val_para[:, :, :, 2:]
 #    print(np.max(val_Y))
     model = Model()
-    print(device)
     model.to(device=device)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                             betas=(0.9, 0.999), eps=1e-8)
@@ -187,6 +177,8 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
             with tqdm(range(train_steps), desc="Training", ncols=100) as pbar:
                 for step in pbar:
                     (Input_batch_train, Para_batch_train) = next(train_generator)
+                    Input_batch_train = Input_batch_train.to(device)
+                    Para_batch_train = Para_batch_train.to(device)
 
                     Y_batch_train = Input_batch_train[:, :, :, :1]
                     Y_batch_train = torch.cat([Y_batch_train] * 3, dim=-1)
@@ -224,36 +216,44 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
             model.eval()
             for step in range(val_steps):
                 (Input_batch_val, Para_batch_val) = next(val_generator)
+                Input_batch_val = Input_batch_val.to(device)
+                Para_batch_val = Para_batch_val.to(device)
 
                 Y_batch_val = Input_batch_val[:, :, :, :1]
                 Y_batch_val = torch.cat([Y_batch_val] * 3, dim=-1)
                 Y_batch_val = Y_batch_val.permute(0, -1, 1, 2).contiguous()
-                BIC_batch_val = Input_batch_val[:, :, :, 1:].detach().numpy()
-                S0_batch_val = Para_batch_val[:, :, :, :1].detach().numpy()
-                DoLP_batch_val = Para_batch_val[:, :, :, 1:2].detach().numpy()
-                AoP_batch_val = Para_batch_val[:, :, :, 2:].detach().numpy()
+                BIC_batch_val = Input_batch_val[:, :, :, 1:]
+                S0_batch_val = Para_batch_val[:, :, :, :1]
+                DoLP_batch_val = Para_batch_val[:, :, :, 1:2]
+                AoP_batch_val = Para_batch_val[:, :, :, 2:]
 
                 S0_hat_val, DoLP_hat_val, AoP_hat_val = model(Y_batch_val)
                 S0_hat_val = S0_hat_val.permute(0, 2, 3, 1).max(dim=-1, keepdim=True).values
                 DoLP_hat_val = DoLP_hat_val.permute(0, 2, 3, 1).max(dim=-1, keepdim=True).values
                 AoP_hat_val = AoP_hat_val.permute(0, 2, 3, 1).max(dim=-1, keepdim=True).values
-                S0_hat_val = S0_hat_val.detach().numpy()
-                DoLP_hat_val = DoLP_hat_val.detach().numpy()
-                AoP_hat_val = AoP_hat_val.detach().numpy()
                 # total_val_loss += sess.run(loss, feed_dict={Y: Y_batch_val, S0:S0_batch_val, DoLP:DoLP_batch_val, AoP:AoP_batch_val})
                 # S0_hat_val, DoLP_hat_val, AoP_hat_val = sess.run([S0_hat, DoLP_hat, AoP_hat], feed_dict={Y:Y_batch_val})
                 #limit the value
+                val_loss = LOSS(S0_hat_val, S0_batch_val, DoLP_hat_val, DoLP_batch_val, AoP_hat_val, AoP_batch_val)
+                total_val_loss += val_loss
 
+                S0_hat_val = S0_hat_val.cpu().detach().numpy()
                 S0_hat_val = np.clip(S0_hat_val, 0, 2)
+                DoLP_hat_val = DoLP_hat_val.cpu().detach().numpy()
                 DoLP_hat_val = np.clip(DoLP_hat_val, 0, 1)
+                AoP_hat_val = AoP_hat_val.cpu().detach().numpy()
                 # AoP_hat_val = np.clip(AoP_hat_val, 0, math.pi)
                 # DoLP_hat_val = Normalize(DoLP_hat_val, 0, 1)
+                S0_batch_val = S0_batch_val.cpu().detach().numpy()
+                DoLP_batch_val = DoLP_batch_val.cpu().detach().numpy()
+                AoP_batch_val = AoP_batch_val.cpu().detach().numpy()
                 total_S0_PSNR += psnr(S0_batch_val[:, :, :, 0], S0_hat_val[:, :, :, 0], 2)
                 total_DoLP_PSNR += psnr(DoLP_batch_val[:, :, :, 0], DoLP_hat_val[:, :, :, 0], 1)
                 total_AoP_PSNR += psnr(AoP_batch_val[:, :, :, 0], AoP_hat_val[:, :, :, 0], math.pi / 2.)
                 # for b in range(AoP_batch_val.shape[0]):
                 #     total_AoP_PSNR += compare_ssim(np.float32(AoP_batch_val[b, :, :, 0]), np.float32(AoP_hat_val[b, :, :, 0]), data_range=math.pi / 2.)
 
+                BIC_batch_val = BIC_batch_val.cpu().detach().numpy()
                 if epoch == 0:
     #                print('max:', max(val_bic[0,6:-6,6:-6,0]))
                     S0_BIC = (BIC_batch_val[:,:,:,0] + BIC_batch_val[:,:,:,1] + BIC_batch_val[:,:,:,2] + BIC_batch_val[:,:,:,3]) / 2.
@@ -290,7 +290,7 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
                     print('Validation loss decreased from %.5f to %.5f' % (min_loss, current_loss))
                     min_loss = current_loss
                     if save_best:
-                        # saver.save(sess, ckpt_path)
+                        torch.save(model, ckpt_path)
                         print("Model saved in file: %s" % ckpt_path)
                     if early_stop:   
                         wait = 0
@@ -302,7 +302,7 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
                             print('Early stop!')
                             break                         
         if not save_best:
-            # saver.save(sess, ckpt_path)
+            torch.save(model, ckpt_path)
             print("Model saved in file: %s" % ckpt_path)
 
         with open(csv_path,'w') as csv_file:
@@ -312,5 +312,7 @@ def train(patch_width = PATCH_WIDTH, patch_height = PATCH_HEIGHT, epoch_num = EP
 if __name__ == '__main__':
     # os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
     # tf.reset_default_graph()
-    train()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    train(device=device)
     

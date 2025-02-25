@@ -22,48 +22,10 @@ fully-convolutional neural network for division of focal plane sensors
 to reconstruct S0, DoLP, and AoP," Opt. Express 27, 8566-8577 (2019)
 ========================================================================
 """
-import tensorflow as tf
 import numpy as np
-from utils.layers import conv2d, conv2d_bn
 import math
 
 import torch
-
-def ForkNet(inputs, padding = 'VALID', name='ForkNet'):
-    '''
-    Built the ForkNet model.
-    Args:
-        inputs: mosaic polarized images
-        padding: padding mode of convolution
-    Returns:
-        s0: reconstructed s0 images
-        dolp: reconstructed dolp images
-        aop: reconstructed aop images
-        
-    '''
-#    keep_prob = tf.where(is_training, 0.2, 1.0)
-    with tf.variable_scope(name):
-        # conventional layers
-        x_1 = conv2d(inputs, [4, 4], 96, activation=tf.nn.relu, padding=padding, name='conv_1')
-        tf.add_to_collection('feature_maps', x_1)
-        x_2 = conv2d(x_1, [3,3], 48, activation=tf.nn.relu, padding=padding, name='conv_2')
-        tf.add_to_collection('feature_maps', x_2)
-
-        x_3_1 = conv2d(x_2, [3, 3], 32, activation=tf.nn.relu, padding=padding, name='conv_3_1')
-        tf.add_to_collection('feature_maps', x_3_1)
-        s0 = conv2d(x_3_1, [5, 5], 1, activation=None, padding=padding, name='conv_4_1')
-
-        x_3_2 = conv2d(x_2, [3, 3], 32, activation=tf.nn.relu, padding=padding, name='conv_3_2')
-        tf.add_to_collection('feature_maps', x_3_2)
-        dolp = conv2d(x_3_2, [5, 5], 1, activation=None, padding=padding, name='conv_4_2')
-
-        x_3_3 = conv2d(x_2, [3, 3], 32, activation=tf.nn.relu, padding=padding, name='conv_3_3')
-        tf.add_to_collection('feature_maps', x_3_3)
-        aop = conv2d(x_3_3, [4, 4], 1, activation=None, padding=padding, name='conv_4_3')
-        aop = tf.atan(aop) / 2. + math.pi / 4
-
-    return s0, dolp, aop
-
 
 def MAE_LOSS(s0_pred, s0_true, dolp_pred, dolp_true, aop_pred, aop_true):
     '''
@@ -113,7 +75,8 @@ def MSE_LOSS(s0_pred, s0_true, dolp_pred, dolp_true, aop_pred, aop_true, max_val
     Define the mse loss function.
     '''
     L, C, S, sl = ssim_loss(aop_true, aop_pred, mv=max_value)
-    loss = tf.reduce_mean(0.1*tf.square(s0_true - s0_pred) + tf.square(dolp_true - dolp_pred) + 0.032*tf.square(aop_true - aop_pred)) - 0.02*tf.log(C)
+    loss = torch.mean(0.1*torch.square(s0_true - s0_pred) + torch.square(dolp_true - dolp_pred) + \
+        0.032*torch.square(aop_true - aop_pred)) - 0.02*torch.log(C)
     return loss
 
 def std_variance(x):
