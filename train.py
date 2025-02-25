@@ -41,7 +41,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY_STEPS = 600
 LEARNING_RATE_DECAY_RATE = 0.988
-IMG_NUM = 110
+IMG_NUM = 10
 EPOCH_NUM = 300
 BATCH_SIZE = 16
 PATCH_WIDTH = 40
@@ -84,17 +84,20 @@ def load_data(batch_size = BATCH_SIZE, train_img_index_path = train_img_index_pa
     with h5py.File(BIC_path, 'r') as h3:
         bic = np.array(h3.get('bic'))
 
+    Y = Y[:1000]
+    label = label[:1000]
+    bic = bic[:1000]
     Input = np.concatenate((Y, bic), axis=-1)
 
     patch_num = Y.shape[0]
     patch_num_per_img = patch_num // IMG_NUM
 
     train_img_index_str = open(train_img_index_path).read()
-    train_img_index = [int(idx) for idx in train_img_index_str.split(',')]
+    train_img_index = [int(idx) for idx in train_img_index_str.split(',') if int(idx) < IMG_NUM]
     # train_img_num = len(train_img_index)
 
     val_img_index_str = open(val_img_index_path).read()
-    val_img_index = [int(idx) for idx in val_img_index_str.split(',')]
+    val_img_index = [int(idx) for idx in val_img_index_str.split(',') if int(idx) < IMG_NUM]
     # val_img_num = len(val_img_index)
 
     patch_index_train = np.concatenate(
