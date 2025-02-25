@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from imgaug import augmenters as iaa
 
 # Define our sequence of augmentation steps that will be applied to every image
@@ -76,6 +77,6 @@ def patch_batch_generator(Y, label, batch_size=64, patch_width=64, patch_height=
 #            X_left_batch = preprocess_input(X_left_batch)
         
 
-        yield (Y_batch, label_batch)
+        yield (torch.from_numpy(Y_batch.astype(np.float32)), torch.from_numpy(label_batch.astype(np.float32)))
 
 

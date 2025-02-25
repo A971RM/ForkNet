@@ -27,6 +27,8 @@ import numpy as np
 from utils.layers import conv2d, conv2d_bn
 import math
 
+import torch
+
 def ForkNet(inputs, padding = 'VALID', name='ForkNet'):
     '''
     Built the ForkNet model.
@@ -102,8 +104,8 @@ def LOSS(s0_pred, s0_true, dolp_pred, dolp_true, aop_pred, aop_true, max_value=m
     Define the loss function.
     '''
     L, C, S, sl = ssim_loss(aop_true, aop_pred, mv=max_value)
-    loss = tf.reduce_mean(tf.reduce_sum(0.1*tf.abs(s0_true - s0_pred) + tf.abs(dolp_true - dolp_pred) + 0.05*tf.abs(aop_true - aop_pred), axis=[1,2,3])) \
-                          - 0.02*tf.log(C)
+    loss = torch.mean(torch.sum(0.1*torch.abs(s0_true - s0_pred) + torch.abs(dolp_true - dolp_pred) + 0.05*torch.abs(aop_true - aop_pred), axis=[1,2,3])) \
+                          - 0.02*torch.log(C)
     return loss
 
 def MSE_LOSS(s0_pred, s0_true, dolp_pred, dolp_true, aop_pred, aop_true, max_value=math.pi/2.):
@@ -118,8 +120,8 @@ def std_variance(x):
     '''
     Compute the std_variance.
     '''
-    shape = tf.cast(tf.shape(x), dtype = tf.float32)
-    var = tf.sqrt(tf.reduce_sum((x-tf.reduce_mean(x))**2) / (shape[0]*shape[1]*shape[2]*shape[3]-1))
+    # shape = tf.cast(tf.shape(x), dtype = tf.float32)
+    var = torch.sqrt(torch.sum((x-torch.mean(x))**2) / (x.numel()-1))
 
     return var
 
@@ -127,8 +129,8 @@ def covariance(x, y):
     '''
     Compute the covariance.
     '''
-    shape = tf.cast(tf.shape(x), dtype=tf.float32)
-    covar = tf.reduce_sum((x-tf.reduce_mean(x))*(y-tf.reduce_mean(y))) / (shape[0]*shape[1]*shape[2]*shape[3]-1)
+    # shape = tf.cast(tf.shape(x), dtype=tf.float32)
+    covar = torch.sum((x-torch.mean(x))*(y-torch.mean(y))) / (x.numel()-1)
 
     return covar
 
@@ -140,8 +142,10 @@ def ssim_loss(x, y, mv, k1=0.01, k2=0.03):
     c2 = (k2*mv)**2.
     c3 = c2/2.
 
-    x_mean = tf.reduce_mean(x)
-    y_mean = tf.reduce_mean(y)
+    # x_mean = tf.reduce_mean(x)
+    x_mean = torch.mean(x)
+    # y_mean = tf.reduce_mean(y)
+    y_mean = torch.mean(y)
     x_std_var = std_variance(x)
     y_std_var = std_variance(y)
     xy_covar = covariance(x,y)
